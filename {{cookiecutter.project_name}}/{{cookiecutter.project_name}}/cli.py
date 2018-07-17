@@ -8,18 +8,21 @@ from pathlib import Path
 
 import click
 import mpy_cross
-from pulsectl import Pulse
-
-from muro.muro_cpy import mainloop, list_players
+import itertools
 
 COMPILE_DIR = Path.cwd() / ".compiled"
-MICROPYTHON_DIR = Path(__file__).parent / "micropython"
+ROOT_DIR = Path(__file__).parent
+MICROPYTHON_DIR = ROOT_DIR / "micropython"
+COMMON_DIR = ROOT_DIR / 'common'
 AUTOSTART_PATH = (
-    Path.home() / ".config" / "autostart" / "{{cookiecutter.project_name}}.desktop"
+        Path.home() / ".config" / "autostart" / "{{cookiecutter.project_name}}.desktop"
 )
 
-INCLUDE_FILES = MICROPYTHON_DIR.glob()  # files to put in the mpy board
-DONT_COMPILE = [MICROPYTHON_DIR / "main.py"]  # don't cross-compile these files
+# files to put in the mpy board
+PROJECT_FILES = itertools.chain((MICROPYTHON_DIR.glob('*.py'), COMMON_DIR.glob('*.py')))
+
+# don't cross-compile these files
+DONT_COMPILE = [MICROPYTHON_DIR / "main.py"]
 
 AUTOSTART_FILE = f"""\
 #!/usr/bin/env xdg-open
@@ -32,7 +35,7 @@ Exec={subprocess.check_output(["which", "python"], encoding='utf-8').strip()} -m
 
 
 def clean_compiled():
-    shutil.rmtree(COMPILED_DIR, ignore_errors=True)
+    shutil.rmtree(COMPILE_DIR, ignore_errors=True)
 
 
 clean_compiled()
@@ -48,7 +51,7 @@ def run_ampy_cmd(port, cmd):
 
 
 def cross_compile(input_path):
-    output_path = COMPILED_DIR / (".".join(input_path.name.split(".")[:-1]) + ".mpy")
+    output_path = COMPILE_DIR / (".".join(input_path.name.split(".")[:-1]) + ".mpy")
     mpy_corss_process = mpy_cross.run(input_path, "-o", output_path)
 
     if mpy_corss_process.wait() == 0:
@@ -78,23 +81,22 @@ def install(port):
     using the `{{cookiecutter.project_name}} run` command.
     """
 
-    ampy_dirs = run_ampy_cmd("ls").split()
+    board_dirs = run_ampy_cmd(port, ["ls"]).split()
     try:
-        COMPILED_DIR.mkdir()
+        COMPILE_DIR.mkdir()
 
-        for file_path in TO_INCLUDE:
+        for file_path in PROJECT_FILES:
+            dir = file_path.parent.relative_to(MICROPYTHON_DIR)
+
             # ampy doesn't allow non-existent dirs, so have to create them.
-            if file_path not in dirs:
-                run_ampy_cmd(["mkdir", dirname])
-                ampy_dirs.append(file_path)
+            if file_path not in board_dirs:
+                run_ampy_cmd(port, ["mkdir", dir])
+                board_dirs.append(file_path)
 
             if file_path not in DONT_COMPILE:
                 file_path = cross_compile(file_path)
 
-            run_subproc(
-                get_ampy_cmd(port)
-                + ["put", file_path, file_path.relative_to(MICROPYTHON_DIR)]
-            )
+            run_ampy_cmd(port, ["put", file_path])
     finally:
         clean_compiled()
 
@@ -114,6 +116,8 @@ def install(port):
 @click.command()
 def run():
     """Run {{cookiecutter.project_name}}"""
+
+    from {{cookiecutter.project_name}}.{{cookiecutter.project_name}} import mainloop
     mainloop()
 
 
@@ -127,7 +131,6 @@ def run():
 
 cli.add_command(install)
 cli.add_command(run)
-cli.add_command(autostart)
 
 if __name__ == "__main__":
     cli()
