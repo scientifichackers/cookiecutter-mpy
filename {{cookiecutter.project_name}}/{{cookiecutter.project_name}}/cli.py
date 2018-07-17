@@ -41,12 +41,12 @@ def clean_compiled():
 clean_compiled()
 
 
-def run_subproc(cmd):
+def run_subproc(cmd: list) -> str:
     print("Run:", " ".join(map(str, cmd)))
-    return subprocess.check_call(cmd)
+    return subprocess.check_output(cmd)
 
 
-def run_ampy_cmd(port, cmd):
+def run_ampy_cmd(port: str, cmd: list) -> str:
     return run_subproc(["/usr/bin/env", "ampy", "-p", port] + cmd)
 
 
