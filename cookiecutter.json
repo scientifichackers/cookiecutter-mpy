@@ -1,0 +1,9 @@
+{
+    "project_name": "mypackage",
+    "project_description": "My short description for my project.",
+    "project_url": "https://github.com/me/myproject",
+    "email": "me@example.com",
+    "name": "Awesome Soul",
+    "py_version": ">=3.7.0",
+    "version": "0.0.1"
+}

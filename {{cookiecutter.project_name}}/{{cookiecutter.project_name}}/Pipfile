@@ -1,0 +1,12 @@
+verify_ssl = true
+name = "pypi"
+
+[packages]
+click = "*"
+mpy-cross = "*"
+adafruit-ampy = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.7"
