@@ -1,1 +1,2 @@
-pipenv install; pipenv install -e .
+#!/bin/env bash
+/bin/env pipenv install; /bin/env pipenv install -e .
