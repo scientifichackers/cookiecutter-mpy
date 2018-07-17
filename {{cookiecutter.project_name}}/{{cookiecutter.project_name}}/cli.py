@@ -43,7 +43,7 @@ clean_compiled()
 
 def run_subproc(cmd):
     print("Run:", " ".join(map(str, cmd)))
-    subprocess.check_call(cmd)
+    return subprocess.check_call(cmd)
 
 
 def run_ampy_cmd(port, cmd):
