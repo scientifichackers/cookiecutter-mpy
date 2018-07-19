@@ -138,9 +138,9 @@ def install(port, force):
         mpy_code = create_mpy_code(project_files)
 
         print("Preparing board...")
-        code_output = run_code_on_board(port, mpy_code)
+        code_output = run_code_on_board(port, mpy_code).strip().split()
 
-        for file, did_change in zip(project_files, code_output.strip().split()):
+        for file, did_change in zip(project_files, code_output):
             if int(did_change) or force:
                 print(f"Transferring {file.path}...")
                 run_ampy_cmd(port, ["put", file.path_compiled, file.path_on_board])
