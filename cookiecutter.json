@@ -1,5 +1,6 @@
 {
     "project_name": "myproject",
+    "project_slug": "{{ cookiecutter.project_name.lower()|replace(' ', '_')|replace('-', '_') }}",
     "project_description": "My short description for my project.",
     "project_url": "https://github.com/me/myproject",
     "email": "me@example.com",

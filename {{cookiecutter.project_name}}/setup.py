@@ -106,7 +106,7 @@ setup(
     # py_modules=['mypackage'],
     entry_points={
         "console_scripts": [
-            "{{cookiecutter.project_name}}={{cookiecutter.project_name}}.cli:cli"
+            "{{cookiecutter.project_slug}}={{cookiecutter.project_slug}}.cli:cli"
         ]
     },
     install_requires=REQUIRED,

@@ -14,7 +14,7 @@ ROOT_DIR = Path(__file__).parent
 MICRO_PYTHON_DIR = ROOT_DIR / "micropython"
 COMMON_DIR = ROOT_DIR / "common"
 
-# files to put in the mpy board
+# files to put in the micropython board
 PROJECT_FILES = [*MICRO_PYTHON_DIR.glob("*.py"), *COMMON_DIR.glob("*.py")]
 
 AUTO_START_FILE = f"""\
@@ -23,7 +23,7 @@ AUTO_START_FILE = f"""\
 Type=Application
 Name={{cookiecutter.project_name}}
 Description={{cookiecutter.project_description}}
-Exec={subprocess.check_output(["which", "python"], encoding="utf-8").strip()} -m {{cookiecutter.project_name}}.cli run\
+Exec={subprocess.check_output(["which", "python"], encoding="utf-8").strip()} -m {{cookiecutter.project_slug}}.cli run\
 """
 
 MPY_DIR_MAKER = """\
@@ -142,7 +142,7 @@ def install(port):
 
     save_code_on_board(
         port,
-        "import {{cookiecutter.project_name}}.micropython.{{cookiecutter.project_name}}",
+        "import {{cookiecutter.project_slug}}.micropython.{{cookiecutter.project_slug}}",
         "main.py",
     )
 
@@ -164,7 +164,7 @@ def install(port):
 def run():
     """Run {{cookiecutter.project_name}}"""
 
-    import {{cookiecutter.project_name}}.{{cookiecutter.project_name}}
+    import {{cookiecutter.project_slug}}.{{cookiecutter.project_slug}}
 
 
 ###########################################
