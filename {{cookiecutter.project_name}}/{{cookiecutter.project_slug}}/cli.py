@@ -12,7 +12,9 @@ import hashlib
 from typing import List
 
 COMPILE_DIR = Path.cwd() / ".compiled"
-AUTO_START_PATH = Path.home() / ".config" / "autostart" / "muro.desktop"
+AUTO_START_PATH = (
+    Path.home() / ".config" / "autostart" / "{{cookiecutter.project_slug}}.desktop"
+)
 THIS_DIR = Path(__file__).parent
 MPY_DIR = THIS_DIR / "micropython"
 MPY_WORKER_TEMPLATE = THIS_DIR / "mpy_worker.py"
@@ -101,7 +103,7 @@ def cli():
     pass
 
 
-@click.command(short_help="Put glove on MicroPython board")
+@click.command(short_help="Install {{cookiecutter.project_name}}")
 @click.option(
     "--port", default="/dev/ttyUSB0", help="USB serial port for connected board"
 )
@@ -110,7 +112,7 @@ def cli():
 )
 def install(port, force):
     """
-    Puts the required code for glove to function
+    Puts the required code for {{cookiecutter.project_name}} to function
     on the MicroPython chip, using "ampy".
 
     By default, it uses /dev/ttyUSB0 as the port.
@@ -119,13 +121,13 @@ def install(port, force):
     which helps when the files are big.
 
     It also configures the application to be run at boot,
-    using the `glove run` command.
+    using the `{{cookiecutter.project_slug}} run` command.
 
     Note:
         By default, it only transfers the files that have changed.
 
     Warning:
-        Removes the files on the board, that are not needed for your project.
+        Removes the files on the board, that are not needed.
         (except "boot.py")
     """
 
@@ -149,12 +151,12 @@ def install(port, force):
     print('Configuring "main.py"...')
     save_code_on_board(
         port,
-        "import {{cookiecutter.project_name}}.micropython.{{cookiecutter.project_name}}",
+        "import {{cookiecutter.project_slug}}.micropython.{{cookiecutter.project_slug}}",
         "main.py",
     )
 
     if click.confirm(
-        "Add `{{cookiecutter.project_name}} run` to auto-start?", default=False
+        "Add `{{cookiecutter.project_slug}} run` to auto-start?", default=False
     ):
         print(f"Adding to auto-start... ({AUTO_START_PATH})")
 
