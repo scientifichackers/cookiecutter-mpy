@@ -1,4 +1,7 @@
-from {{cookiecutter.project_name}}.common import pdsock
+"""
+This file is imported in the "main.py" file. (inside micropython board)
 
-def mainloop():
-    print("Hello Micropython!")
+The "main.py" file is run at boot, right after the "boot.py" file
+"""
+
+print("Hello Micropython!")

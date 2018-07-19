@@ -1,36 +1,51 @@
-"""
-A bunch of command-line utils to help you do the chores.
-"""
+"""A bunch of command-line utils to help you do the chores."""
 
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import click
 import mpy_cross
-import itertools
 
 COMPILE_DIR = Path.cwd() / ".compiled"
+AUTO_START_PATH = Path.home() / ".config" / "autostart" / "muro.desktop"
 ROOT_DIR = Path(__file__).parent
-MICROPYTHON_DIR = ROOT_DIR / "micropython"
-COMMON_DIR = ROOT_DIR / 'common'
-AUTOSTART_PATH = (
-        Path.home() / ".config" / "autostart" / "{{cookiecutter.project_name}}.desktop"
-)
+MICRO_PYTHON_DIR = ROOT_DIR / "micropython"
+COMMON_DIR = ROOT_DIR / "common"
 
 # files to put in the mpy board
-PROJECT_FILES = itertools.chain((MICROPYTHON_DIR.glob('*.py'), COMMON_DIR.glob('*.py')))
+PROJECT_FILES = [*MICRO_PYTHON_DIR.glob("*.py"), *COMMON_DIR.glob("*.py")]
 
-# don't cross-compile these files
-DONT_COMPILE = [MICROPYTHON_DIR / "main.py"]
-
-AUTOSTART_FILE = f"""\
+AUTO_START_FILE = f"""\
 #!/usr/bin/env xdg-open
 [Desktop Entry]
 Type=Application
 Name={{cookiecutter.project_name}}
 Description={{cookiecutter.project_description}}
-Exec={subprocess.check_output(["which", "python"], encoding='utf-8').strip()} -m {{cookiecutter.project_name}}.cli run\
+Exec={subprocess.check_output(["which", "python"], encoding="utf-8").strip()} -m {{cookiecutter.project_name}}.cli run\
+"""
+
+MPY_DIR_MAKER = """\
+import uos as os
+
+
+def makedirs(dir_parts: tuple):
+    parent_parts = dir_parts[:-1]
+
+    if parent_parts:
+        makedirs(parent_parts)
+
+        try:
+            os.mkdir("/".join(dir_parts))
+        except OSError:
+            pass
+    else:
+        return
+
+
+for file_path_parts in {}:
+    makedirs(file_path_parts)
 """
 
 
@@ -43,21 +58,35 @@ clean_compiled()
 
 def run_subproc(cmd: list) -> str:
     print("Run:", " ".join(map(str, cmd)))
-    return subprocess.check_output(cmd)
+    return subprocess.check_output(cmd, encoding="utf-8")
 
 
 def run_ampy_cmd(port: str, cmd: list) -> str:
     return run_subproc(["/usr/bin/env", "ampy", "-p", port] + cmd)
 
 
-def cross_compile(input_path):
+def run_code_on_board(port: str, code_as_str: str) -> str:
+    with tempfile.NamedTemporaryFile(mode="w") as fp:
+        fp.write(code_as_str)
+        fp.flush()
+        return run_ampy_cmd(port, ["run", fp.name])
+
+
+def save_code_on_board(port: str, code_as_str: str, file_name_on_board: str) -> str:
+    with tempfile.NamedTemporaryFile(mode="w") as fp:
+        fp.write(code_as_str)
+        fp.flush()
+        return run_ampy_cmd(port, ["put", fp.name, file_name_on_board])
+
+
+def cross_compile(input_path: Path) -> Path:
     output_path = COMPILE_DIR / (".".join(input_path.name.split(".")[:-1]) + ".mpy")
     mpy_corss_process = mpy_cross.run(input_path, "-o", output_path)
 
     if mpy_corss_process.wait() == 0:
         return output_path
     else:
-        exit("Something bad happend!")
+        exit("Something bad happened!")
 
 
 @click.group()
@@ -65,11 +94,13 @@ def cli():
     pass
 
 
-@click.command(short_help="Put muro on MicroPython chip")
-@click.option("--port", default="/dev/ttyUSB0", help="Serial port for connected board")
+@click.command(short_help="Put {{cookiecutter.project_name}} on MicroPython board")
+@click.option(
+    "--port", default="/dev/ttyUSB0", help="USB serial port for connected board"
+)
 def install(port):
     """
-    Puts the required code for muro to function
+    Puts the required code for {{cookiecutter.project_name}} to function
     on the MicroPython chip, using "ampy".
 
     By default, it uses /dev/ttyUSB0 as the port.
@@ -81,34 +112,50 @@ def install(port):
     using the `{{cookiecutter.project_name}} run` command.
     """
 
-    board_dirs = run_ampy_cmd(port, ["ls"]).split()
+    run_code_on_board(
+        port,
+        MPY_DIR_MAKER.format(
+            {
+                file_path.parent.relative_to(ROOT_DIR.parent).parts
+                for file_path in PROJECT_FILES
+            }
+        ),
+    )
+
     try:
         COMPILE_DIR.mkdir()
 
         for file_path in PROJECT_FILES:
-            dir = file_path.parent.relative_to(MICROPYTHON_DIR)
+            file_path_for_board = file_path.relative_to(ROOT_DIR.parent)
+            compiled_file_path = cross_compile(file_path)
 
-            # ampy doesn't allow non-existent dirs, so have to create them.
-            if file_path not in board_dirs:
-                run_ampy_cmd(port, ["mkdir", dir])
-                board_dirs.append(file_path)
-
-            if file_path not in DONT_COMPILE:
-                file_path = cross_compile(file_path)
-
-            run_ampy_cmd(port, ["put", file_path])
+            run_ampy_cmd(
+                port,
+                [
+                    "put",
+                    compiled_file_path,
+                    str(file_path_for_board.with_name(compiled_file_path.name)),
+                ],
+            )
     finally:
         clean_compiled()
 
-    print(
-        f"Adding {{cookiecutter.project_name}}.desktop to autostart... ({AUTOSTART_PATH})"
+    save_code_on_board(
+        port,
+        "import {{cookiecutter.project_name}}.micropython.{{cookiecutter.project_name}}",
+        "main.py",
     )
 
-    if not AUTOSTART_PATH.parent.exists():
-        AUTOSTART_PATH.parent.mkdir(parents=True)
+    if click.confirm(
+        "Add `{{cookiecutter.project_name}} run` to auto-start?", default=False
+    ):
+        print(f"Adding to auto-start... ({AUTO_START_PATH})")
 
-    with open(AUTOSTART_PATH, "w") as f:
-        f.write(AUTOSTART_FILE)
+        if not AUTO_START_PATH.parent.exists():
+            AUTO_START_PATH.parent.mkdir(parents=True)
+
+        with open(AUTO_START_PATH, "w") as f:
+            f.write(AUTO_START_FILE)
 
     print("Done!")
 
@@ -117,8 +164,7 @@ def install(port):
 def run():
     """Run {{cookiecutter.project_name}}"""
 
-    from {{cookiecutter.project_name}}.{{cookiecutter.project_name}} import mainloop
-    mainloop()
+    import {{cookiecutter.project_name}}.{{cookiecutter.project_name}}
 
 
 ###########################################
