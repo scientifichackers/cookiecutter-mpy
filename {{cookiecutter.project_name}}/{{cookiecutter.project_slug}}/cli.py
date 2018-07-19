@@ -4,19 +4,20 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-import hashlib
+from jinja2 import Template
 
 import click
 import mpy_cross
+import hashlib
+from typing import List
 
 COMPILE_DIR = Path.cwd() / ".compiled"
 AUTO_START_PATH = Path.home() / ".config" / "autostart" / "muro.desktop"
-ROOT_DIR = Path(__file__).parent
-MICRO_PYTHON_DIR = ROOT_DIR / "micropython"
-COMMON_DIR = ROOT_DIR / "common"
-
-# files to put in the micropython board
-PROJECT_FILES = [*MICRO_PYTHON_DIR.rglob("*.py"), *COMMON_DIR.rglob("*.py")]
+THIS_DIR = Path(__file__).parent
+MPY_DIR = THIS_DIR / "micropython"
+MPY_WORKER_TEMPLATE = THIS_DIR / "mpy_worker.py"
+COMMON_DIR = THIS_DIR / "common"
+PROJECT_FILES = [*MPY_DIR.rglob("*.py"), *COMMON_DIR.rglob("*.py")]
 
 AUTO_START_FILE = f"""\
 #!/usr/bin/env xdg-open
@@ -27,41 +28,6 @@ Description={{cookiecutter.project_description}}
 Exec={subprocess.check_output(["which", "python"], encoding="utf-8").strip()} -m {{cookiecutter.project_slug}}.cli run\
 """
 
-MPY_DIR_MAKER = """\
-import uos as os
-
-
-def makedirs(dir_parts: tuple):
-    parent_parts = dir_parts[:-1]
-
-    if dir_parts:
-        makedirs(parent_parts)
-
-        try:
-            os.mkdir("/".join(dir_parts))
-        except OSError:
-            pass
-    else:
-        return
-
-
-for file_path_parts in {}:
-    makedirs(file_path_parts) 
-"""
-
-MPY_FILE_CHANGE_CHECKER = """\
-import uhashlib as hashlib
-
-
-try:
-    with open("{0}", "rb") as fp:
-        file_data = fp.read()
-except OSError:
-    print(0)
-else:
-    print(int(hashlib.sha1(file_data).digest() != {1}))
-"""
-
 
 def clean_compiled():
     shutil.rmtree(COMPILE_DIR, ignore_errors=True)
@@ -70,27 +36,30 @@ def clean_compiled():
 clean_compiled()
 
 
-def run_subproc(cmd: list) -> str:
-    print("Run:", " ".join(map(str, cmd)))
+def run_subproc(cmd: list, silent=False) -> str:
+    if not silent:
+        print("Run:", " ".join(map(str, cmd)))
     return subprocess.check_output(cmd, encoding="utf-8")
 
 
-def run_ampy_cmd(port: str, cmd: list) -> str:
-    return run_subproc(["/usr/bin/env", "ampy", "-p", port] + cmd)
+def run_ampy_cmd(port: str, cmd: list, silent=False) -> str:
+    return run_subproc(["/usr/bin/env", "ampy", "-p", port] + cmd, silent)
 
 
-def run_code_on_board(port: str, code_as_str: str) -> str:
+def run_code_on_board(port: str, code_as_str: str, silent=False) -> str:
     with tempfile.NamedTemporaryFile(mode="w") as fp:
         fp.write(code_as_str)
         fp.flush()
-        return run_ampy_cmd(port, ["run", fp.name])
+        return run_ampy_cmd(port, ["run", fp.name], silent)
 
 
-def save_code_on_board(port: str, code_as_str: str, file_name_on_board: str) -> str:
+def save_code_on_board(
+        port: str, code_as_str: str, file_name_on_board: str, silent=False
+) -> str:
     with tempfile.NamedTemporaryFile(mode="w") as fp:
         fp.write(code_as_str)
         fp.flush()
-        return run_ampy_cmd(port, ["put", fp.name, file_name_on_board])
+        return run_ampy_cmd(port, ["put", fp.name, file_name_on_board], silent)
 
 
 def cross_compile(input_path: Path) -> Path:
@@ -103,15 +72,35 @@ def cross_compile(input_path: Path) -> Path:
         exit("Something bad happened!")
 
 
-def check_if_file_changed(port, file_path, file_path_for_board):
-    with open(file_path, "rb") as fp:
-        return int(
-            run_code_on_board(
-                port,
-                MPY_FILE_CHANGE_CHECKER.format(
-                    file_path_for_board, hashlib.sha1(fp.read()).digest()
-                ),
-            ).strip()
+class File:
+    def __init__(self, file_path: Path):
+        self.path = file_path
+        self.path_compiled = cross_compile(file_path)
+
+        with open(self.path_compiled, "rb") as fp:
+            self.hash = hashlib.sha1(fp.read()).digest()
+
+        self.path_on_board = str(
+            file_path.relative_to(THIS_DIR.parent).with_suffix(
+                self.path_compiled.suffix
+            )
+        )
+        self.dir_path_parts_on_board = file_path.parent.relative_to(
+            THIS_DIR.parent
+        ).parts
+
+    def __repr__(self):
+        return f"<File path: {self.path}>"
+
+
+def create_mpy_code(project_files: List[File]) -> str:
+    with open(MPY_WORKER_TEMPLATE, "r") as fp:
+        return Template(fp.read()).render(
+            dirs_to_create={file.dir_path_parts_on_board for file in project_files},
+            all_files={file.path_on_board for file in project_files},
+            all_files_with_hash={
+                (file.path_on_board, file.hash) for file in project_files
+            },
         )
 
 
@@ -120,59 +109,43 @@ def cli():
     pass
 
 
-@click.command(short_help="Put {{cookiecutter.project_name}} on MicroPython board")
+@click.command(short_help="Put glove on MicroPython board")
 @click.option(
     "--port", default="/dev/ttyUSB0", help="USB serial port for connected board"
 )
 def install(port):
     """
-    Puts the required code for {{cookiecutter.project_name}} to function
+    Puts the required code for glove to function
     on the MicroPython chip, using "ampy".
 
     By default, it uses /dev/ttyUSB0 as the port.
 
-    It also uses the `mpy-cross` utility to cross compile the files, 
+    It also uses the `mpy-cross` utility to cross compile the files,
     which helps when the files are big.
-    
-    It also configures the application to be run at boot,
-    using the `{{cookiecutter.project_name}} run` command.
-    """
 
-    run_code_on_board(
-        port,
-        MPY_DIR_MAKER.format(
-            {
-                file_path.parent.relative_to(ROOT_DIR.parent).parts
-                for file_path in PROJECT_FILES
-            }
-        ),
-    )
+    It also configures the application to be run at boot,
+    using the `glove run` command.
+    """
 
     try:
         COMPILE_DIR.mkdir()
 
-        for file_path in PROJECT_FILES:
-            compiled_file_path = cross_compile(file_path)
-            file_path_for_board = str(
-                file_path.relative_to(ROOT_DIR.parent).with_suffix(
-                    compiled_file_path.suffix
-                )
-            )
+        project_files = [File(file_path) for file_path in PROJECT_FILES]
+        mpy_code = create_mpy_code(project_files)
 
-            if check_if_file_changed(port, compiled_file_path, file_path_for_board):
-                run_ampy_cmd(port, ["put", compiled_file_path, file_path_for_board])
+        print("Analysing board...")
+        code_output = run_code_on_board(port, mpy_code, silent=True)
+
+        for file, did_change in zip(project_files, code_output.strip().split()):
+            if int(did_change):
+                run_ampy_cmd(port, ["put", file.path_compiled, file.path_on_board])
     finally:
         clean_compiled()
 
-    save_code_on_board(
-        port,
-        "import {{cookiecutter.project_slug}}.micropython.{{cookiecutter.project_slug}}",
-        "main.py",
-    )
+    print('Configuring "main.py"...')
+    save_code_on_board(port, "import glove.micropython.glove", "main.py", silent=True)
 
-    if click.confirm(
-        "Add `{{cookiecutter.project_name}} run` to auto-start?", default=False
-    ):
+    if click.confirm("Add `glove run` to auto-start?", default=False):
         print(f"Adding to auto-start... ({AUTO_START_PATH})")
 
         if not AUTO_START_PATH.parent.exists():
