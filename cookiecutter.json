@@ -6,5 +6,8 @@
     "email": "me@example.com",
     "name": "Awesome Soul",
     "py_version": ">=3.7.0",
-    "version": "0.0.1"
+    "version": "0.0.1",
+    "_copy_without_render": [
+      "{{cookiecutter.project_slug}}/mpy_worker.py"
+    ]
 }
