@@ -139,7 +139,6 @@ def install(port, force):
 
         print("Preparing board...")
         code_output = run_code_on_board(port, mpy_code)
-        # print(code_output)
 
         for file, did_change in zip(project_files, code_output.strip().split()):
             if int(did_change) or force:
@@ -173,7 +172,7 @@ def install(port, force):
 def run():
     """Run {{cookiecutter.project_name}}"""
 
-    # import {{cookiecutter.project_slug}}.{{cookiecutter.project_slug}}
+    import {{cookiecutter.project_slug}}.{{cookiecutter.project_slug}}
 
 
 ###########################################
