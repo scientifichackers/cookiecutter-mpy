@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+import hashlib
 
 import click
 import mpy_cross
@@ -15,7 +16,7 @@ MICRO_PYTHON_DIR = ROOT_DIR / "micropython"
 COMMON_DIR = ROOT_DIR / "common"
 
 # files to put in the micropython board
-PROJECT_FILES = [*MICRO_PYTHON_DIR.glob("*.py"), *COMMON_DIR.glob("*.py")]
+PROJECT_FILES = [*MICRO_PYTHON_DIR.rglob("*.py"), *COMMON_DIR.rglob("*.py")]
 
 AUTO_START_FILE = f"""\
 #!/usr/bin/env xdg-open
@@ -46,6 +47,20 @@ def makedirs(dir_parts: tuple):
 
 for file_path_parts in {}:
     makedirs(file_path_parts) 
+"""
+
+MPY_FILE_CHANGE_CHECKER = """\
+import uhashlib as hashlib
+
+
+try:
+    with open("{0}", "rb") as fp:
+        file_data = fp.read()
+
+except OSError:
+    print(0)
+
+print(int(hashlib.sha1(file_data).digest() != {1}))
 """
 
 
@@ -89,6 +104,18 @@ def cross_compile(input_path: Path) -> Path:
         exit("Something bad happened!")
 
 
+def check_if_file_changed(port, file_path, file_path_for_board):
+    with open(file_path, "rb") as fp:
+        return int(
+            run_code_on_board(
+                port,
+                MPY_FILE_CHANGE_CHECKER.format(
+                    file_path_for_board, hashlib.sha1(fp.read()).digest()
+                ),
+            ).strip()
+        )
+
+
 @click.group()
 def cli():
     pass
@@ -126,17 +153,15 @@ def install(port):
         COMPILE_DIR.mkdir()
 
         for file_path in PROJECT_FILES:
-            file_path_for_board = file_path.relative_to(ROOT_DIR.parent)
             compiled_file_path = cross_compile(file_path)
-
-            run_ampy_cmd(
-                port,
-                [
-                    "put",
-                    compiled_file_path,
-                    str(file_path_for_board.with_name(compiled_file_path.name)),
-                ],
+            file_path_for_board = str(
+                file_path.relative_to(ROOT_DIR.parent).with_suffix(
+                    compiled_file_path.suffix
+                )
             )
+
+            if check_if_file_changed(port, compiled_file_path, file_path_for_board):
+                run_ampy_cmd(port, ["put", compiled_file_path, file_path_for_board])
     finally:
         clean_compiled()
 
