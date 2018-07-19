@@ -62,26 +62,27 @@ def list_all_files_and_dirs() -> tuple:
 
 all_files, all_dirs = list_all_files_and_dirs()
 
-# remove trash files
+required_files = {{required_files}}
 for file in all_files:
-    if file not in {{required_files}}:
+    if file not in required_files:
         try:
             os.remove(file)
         except OSError:
             pass
 
-# remove trash dirs
+required_dirs = {{required_dirs}}
+required_dirs.add("boot.py")  # avoid fucking up the boot.py.
 for dir in all_dirs:
-    if dir not in {{required_dirs}}:
+    if dir not in required_dirs:
         try:
             os.rmdir(dir)
         except OSError:
             pass
 
 # create necessary dirs
-for dir in {{required_dirs}}:
+for dir in required_dirs:
     mkdir_with_parents(dir)
 
 # inform everyone that files have changed
-for i in {{required_files_with_hash}}:
-    print(did_it_change(*i), end=" ")
+for file_and_hash in {{required_files_with_hash}}:
+    print(did_it_change(*file_and_hash), end=" ")

@@ -58,9 +58,9 @@ def save_code_on_board(port: str, code_as_str: str, file_name_on_board: str) -> 
 
 def cross_compile(input_path: Path) -> Path:
     output_path = COMPILE_DIR / (".".join(input_path.name.split(".")[:-1]) + ".mpy")
-    mpy_corss_process = mpy_cross.run(input_path, "-o", output_path)
+    mpy_cross_process = mpy_cross.run(input_path, "-o", output_path)
 
-    if mpy_corss_process.wait() == 0:
+    if mpy_cross_process.wait() == 0:
         return output_path
     else:
         exit("Something bad happened!")
@@ -105,7 +105,10 @@ def cli():
 @click.option(
     "--port", default="/dev/ttyUSB0", help="USB serial port for connected board"
 )
-def install(port):
+@click.option(
+    "--force", is_flag=True, help="Transfer files whether they have changed or not."
+)
+def install(port, force):
     """
     Puts the required code for glove to function
     on the MicroPython chip, using "ampy".
@@ -117,6 +120,13 @@ def install(port):
 
     It also configures the application to be run at boot,
     using the `glove run` command.
+
+    Note:
+        By default, it only transfers the files that have changed.
+
+    Warning:
+        Removes the files on the board, that are not needed for your project.
+        (except "boot.py")
     """
 
     try:
@@ -130,7 +140,7 @@ def install(port):
         # print(code_output)
 
         for file, did_change in zip(project_files, code_output.strip().split()):
-            if int(did_change):
+            if int(did_change) or force:
                 print(f"Transferring {file.path}...")
                 run_ampy_cmd(port, ["put", file.path_compiled, file.path_on_board])
     finally:
