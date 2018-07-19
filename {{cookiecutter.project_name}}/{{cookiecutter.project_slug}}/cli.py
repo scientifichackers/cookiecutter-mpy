@@ -33,7 +33,7 @@ import uos as os
 def makedirs(dir_parts: tuple):
     parent_parts = dir_parts[:-1]
 
-    if parent_parts:
+    if dir_parts:
         makedirs(parent_parts)
 
         try:
@@ -45,7 +45,7 @@ def makedirs(dir_parts: tuple):
 
 
 for file_path_parts in {}:
-    makedirs(file_path_parts)
+    makedirs(file_path_parts) 
 """
 
 
