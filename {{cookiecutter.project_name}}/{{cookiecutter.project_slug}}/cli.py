@@ -36,30 +36,24 @@ def clean_compiled():
 clean_compiled()
 
 
-def run_subproc(cmd: list, silent=False) -> str:
-    if not silent:
-        print("Run:", " ".join(map(str, cmd)))
-    return subprocess.check_output(cmd, encoding="utf-8")
+def run_ampy_cmd(port: str, cmd: list) -> str:
+    return subprocess.check_output(
+        ["/usr/bin/env", "ampy", "-p", port] + cmd, encoding="utf-8"
+    )
 
 
-def run_ampy_cmd(port: str, cmd: list, silent=False) -> str:
-    return run_subproc(["/usr/bin/env", "ampy", "-p", port] + cmd, silent)
-
-
-def run_code_on_board(port: str, code_as_str: str, silent=False) -> str:
+def run_code_on_board(port: str, code_as_str: str) -> str:
     with tempfile.NamedTemporaryFile(mode="w") as fp:
         fp.write(code_as_str)
         fp.flush()
-        return run_ampy_cmd(port, ["run", fp.name], silent)
+        return run_ampy_cmd(port, ["run", fp.name])
 
 
-def save_code_on_board(
-        port: str, code_as_str: str, file_name_on_board: str, silent=False
-) -> str:
+def save_code_on_board(port: str, code_as_str: str, file_name_on_board: str) -> str:
     with tempfile.NamedTemporaryFile(mode="w") as fp:
         fp.write(code_as_str)
         fp.flush()
-        return run_ampy_cmd(port, ["put", fp.name, file_name_on_board], silent)
+        return run_ampy_cmd(port, ["put", fp.name, file_name_on_board])
 
 
 def cross_compile(input_path: Path) -> Path:
@@ -85,9 +79,7 @@ class File:
                 self.path_compiled.suffix
             )
         )
-        self.dir_path_parts_on_board = file_path.parent.relative_to(
-            THIS_DIR.parent
-        ).parts
+        self.dir_path_on_board = str(file_path.parent.relative_to(THIS_DIR.parent))
 
     def __repr__(self):
         return f"<File path: {self.path}>"
@@ -96,9 +88,9 @@ class File:
 def create_mpy_code(project_files: List[File]) -> str:
     with open(MPY_WORKER_TEMPLATE, "r") as fp:
         return Template(fp.read()).render(
-            dirs_to_create={file.dir_path_parts_on_board for file in project_files},
-            all_files={file.path_on_board for file in project_files},
-            all_files_with_hash={
+            required_dirs={file.dir_path_on_board for file in project_files},
+            required_files={file.path_on_board for file in project_files},
+            required_files_with_hash={
                 (file.path_on_board, file.hash) for file in project_files
             },
         )
@@ -133,19 +125,27 @@ def install(port):
         project_files = [File(file_path) for file_path in PROJECT_FILES]
         mpy_code = create_mpy_code(project_files)
 
-        print("Analysing board...")
-        code_output = run_code_on_board(port, mpy_code, silent=True)
+        print("Preparing board...")
+        code_output = run_code_on_board(port, mpy_code)
+        # print(code_output)
 
         for file, did_change in zip(project_files, code_output.strip().split()):
             if int(did_change):
+                print(f"Transferring {file.path}...")
                 run_ampy_cmd(port, ["put", file.path_compiled, file.path_on_board])
     finally:
         clean_compiled()
 
     print('Configuring "main.py"...')
-    save_code_on_board(port, "import glove.micropython.glove", "main.py", silent=True)
+    save_code_on_board(
+        port,
+        "import {{cookiecutter.project_name}}.micropython.{{cookiecutter.project_name}}",
+        "main.py",
+    )
 
-    if click.confirm("Add `glove run` to auto-start?", default=False):
+    if click.confirm(
+        "Add `{{cookiecutter.project_name}} run` to auto-start?", default=False
+    ):
         print(f"Adding to auto-start... ({AUTO_START_PATH})")
 
         if not AUTO_START_PATH.parent.exists():
@@ -161,7 +161,7 @@ def install(port):
 def run():
     """Run {{cookiecutter.project_name}}"""
 
-    import {{cookiecutter.project_slug}}.{{cookiecutter.project_slug}}
+    # import {{cookiecutter.project_slug}}.{{cookiecutter.project_slug}}
 
 
 ###########################################

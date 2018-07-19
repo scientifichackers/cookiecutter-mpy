@@ -5,6 +5,7 @@ name = "pypi"
 click = "*"
 mpy-cross = "*"
 adafruit-ampy = "*"
+jinja2 = "*"
 
 [dev-packages]
 

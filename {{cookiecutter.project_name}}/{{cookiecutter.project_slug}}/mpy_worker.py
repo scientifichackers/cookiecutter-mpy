@@ -8,32 +8,34 @@ import uos as os
 import uhashlib as hashlib
 
 
+def get_path_parent(path: str) -> str:
+    return "/".join(path.split("/")[:-1])
+
+
 def did_it_change(file_to_check: str, file_hash: bytes) -> int:
     try:
         with open(file_to_check, "rb") as fp:
             file_data = fp.read()
     except OSError:
-        return 0
+        return 1
     else:
         return int(hashlib.sha1(file_data).digest() != file_hash)
 
 
-def mkdir_with_parents(dir_parts: tuple) -> None:
-    parent_parts = dir_parts[:-1]
-
-    if dir_parts:
-        mkdir_with_parents(parent_parts)
+def mkdir_with_parents(dir: str) -> None:
+    if dir:
+        mkdir_with_parents(get_path_parent(dir))
 
         try:
-            os.mkdir("/".join(dir_parts))
+            os.mkdir(dir)
         except OSError:
             pass
     else:
         return
 
 
-def list_all_files() -> set:
-    result = set()
+def list_all_files_and_dirs() -> tuple:
+    files, dirs = set(), set()
     next_one = set(os.listdir())  # some seed, to start the fire.
 
     while next_one:
@@ -44,35 +46,42 @@ def list_all_files() -> set:
         for something in this_one:
             # looks like we have something, let's inspect.
             try:
-                # if its a directory, then it shall provide some children.
+                # if its a directory, then it should provide some children.
                 children = os.listdir(something)
             except OSError:
-                # if not, then it's a file, and we shall put it in the result.
-                result.add(something)
+                # if "something" was a file, then it will bleed here. (files hate listdir())
+                files.add(something)
             else:
+                # dirs pass through there.
+                dirs.add(something)
                 # queue the children to be inspected in next iteration (with correct path).
                 next_one.update([something + "/" + child for child in children])
 
-    return result
+    return files, dirs
 
 
-# remove trash dirs / files
-for file in list_all_files():
-    if file not in {{all_files}}:
-        os.remove(file)
+all_files, all_dirs = list_all_files_and_dirs()
 
-        dir = "/".join(file.split("/")[:-1])
+# remove trash files
+for file in all_files:
+    if file not in {{required_files}}:
         try:
-            # remove the dir containing this file, if it's empty.
-            if not os.listdir(dir):
-                os.rmdir(dir)
+            os.remove(file)
+        except OSError:
+            pass
+
+# remove trash dirs
+for dir in all_dirs:
+    if dir not in {{required_dirs}}:
+        try:
+            os.rmdir(dir)
         except OSError:
             pass
 
 # create necessary dirs
-for file in {{dirs_to_create}}:
-    mkdir_with_parents(file)
+for dir in {{required_dirs}}:
+    mkdir_with_parents(dir)
 
-# inform everyone about files have changed
-for i in {{all_files_with_hash}}:
+# inform everyone that files have changed
+for i in {{required_files_with_hash}}:
     print(did_it_change(*i), end=" ")

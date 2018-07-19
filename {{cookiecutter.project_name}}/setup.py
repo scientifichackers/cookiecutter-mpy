@@ -21,8 +21,7 @@ REQUIRES_PYTHON = "{{cookiecutter.py_version}}"
 VERSION = "{{cookiecutter.version}}"
 
 # What packages are required for this module to be executed?
-# ("click", "adafruit-ampy" & "mpy-cross" are used for the cli)
-REQUIRED = ["click", "adafruit-ampy", "mpy-cross"]
+REQUIRED = ["click", "adafruit-ampy", "mpy-cross", "jinja2"]
 
 # What packages are optional?
 EXTRAS = {
