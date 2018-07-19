@@ -56,11 +56,10 @@ import uhashlib as hashlib
 try:
     with open("{0}", "rb") as fp:
         file_data = fp.read()
-
 except OSError:
     print(0)
-
-print(int(hashlib.sha1(file_data).digest() != {1}))
+else:
+    print(int(hashlib.sha1(file_data).digest() != {1}))
 """
 
 
