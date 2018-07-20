@@ -137,8 +137,9 @@ def install(port, force):
         project_files = [File(file_path) for file_path in PROJECT_FILES]
         mpy_code = create_mpy_code(project_files)
 
-        print("Preparing board...")
-        code_output = run_code_on_board(port, mpy_code).strip().split()
+        print(f'Preparing board @ "{port}"...')
+        code_output = run_code_on_board(port, mpy_code)
+        code_output = map(int, code_output.strip().split())
 
         for file, did_change in zip(project_files, code_output):
             if int(did_change) or force:

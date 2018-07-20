@@ -22,9 +22,9 @@ def did_it_change(file_to_check: str, file_hash: bytes) -> int:
         return int(hashlib.sha1(file_data).digest() != file_hash)
 
 
-def mkdir_with_parents(dir: str) -> None:
+def mkdir_p(dir: str) -> None:
     if dir:
-        mkdir_with_parents(get_parent_path(dir))
+        mkdir_p(get_parent_path(dir))
         try:
             os.mkdir(dir)
         except OSError:
@@ -33,37 +33,49 @@ def mkdir_with_parents(dir: str) -> None:
         return
 
 
-def rmdir_with_children(directory):
-    os.chdir(directory)
+def rm_r(dir: str) -> None:
+    os.chdir(dir)
     for f in os.listdir():
         try:
             os.remove(f)
         except OSError:
             pass
     for f in os.listdir():
-        rmdir_with_children(f)
+        rm_r(f)
     os.chdir("..")
-    os.rmdir(directory)
+    os.rmdir(dir)
 
 
-def remove_unwanted(dir_or_file):
+def rmdir_if_not_required(dir: str) -> None:
+    for req in required_dirs:
+        if req.startswith(dir):
+            return
+    try:
+        rm_r(dir)
+    except OSError:
+        pass
+
+
+def rm_if_not_required(file: str) -> None:
+    if file not in required_files:
+        try:
+            os.remove(file)
+        except OSError:
+            pass
+
+
+def remove_unwanted(dir_or_file: str):
+    if dir_or_file.startswith("/"):
+        dir_or_file = dir_or_file[1:]
     try:
         # if its a directory, then it should provide some children.
         children = os.listdir(dir_or_file)
     except OSError:
         # probably a file, remove if not required.
-        if dir_or_file not in required_files:
-            try:
-                os.remove(dir_or_file)
-            except OSError:
-                pass
+        rm_if_not_required(dir_or_file)
     else:
         # probably a directory, remove if not required.
-        if dir_or_file not in required_dirs:
-            try:
-                rmdir_with_children(dir_or_file)
-            except OSError:
-                pass
+        rmdir_if_not_required(dir_or_file)
 
         # queue the children to be inspected in next iteration (with correct path).
         for child in children:
@@ -76,12 +88,13 @@ required_files_with_hash = {{required_files_with_hash}}
 required_dirs = {{required_dirs}}
 required_dirs.add("boot.py")  # avoid fucking up the boot.py.
 
+
 # Remove unwanted files / directories
 remove_unwanted(os.getcwd())
 
 # create necessary dirs
 for dir in required_dirs:
-    mkdir_with_parents(dir)
+    mkdir_p(dir)
 
 # inform everyone which files have changed
 for file_and_hash in required_files_with_hash:
