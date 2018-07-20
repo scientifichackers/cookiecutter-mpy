@@ -92,9 +92,9 @@ def create_mpy_code(project_files: List[File]) -> str:
         return Template(fp.read()).render(
             required_dirs={file.dir_path_on_board for file in project_files},
             required_files={file.path_on_board for file in project_files},
-            required_files_with_hash={
+            files_to_check_for_change_with_hash=[
                 (file.path_on_board, file.hash) for file in project_files
-            },
+            ],
         )
 
 

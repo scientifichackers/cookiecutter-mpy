@@ -79,23 +79,27 @@ def remove_unwanted(dir_or_file: str):
 
         # queue the children to be inspected in next iteration (with correct path).
         for child in children:
-            remove_unwanted(dir_or_file + "/" + child)
+            if dir_or_file == "/":
+                dir_or_file = dir_or_file + child
+            else:
+                dir_or_file = dir_or_file + "/" + child
+
+            remove_unwanted(dir_or_file)
 
 
-# gather information from Jinja template variables
+# gather required files / dirs.
 required_files = {{required_files}}
-required_files_with_hash = {{required_files_with_hash}}
 required_dirs = {{required_dirs}}
 required_dirs.add("boot.py")  # avoid fucking up the boot.py.
 
 
-# Remove unwanted files / directories
+# Remove unwanted files / dirs.
 remove_unwanted(os.getcwd())
 
-# create necessary dirs
+# create necessary dirs.
 for dir in required_dirs:
     mkdir_p(dir)
 
-# inform everyone which files have changed
-for file_and_hash in required_files_with_hash:
+# inform everyone which files have changed.
+for file_and_hash in {{files_to_check_for_change_with_hash}}:
     print(did_it_change(*file_and_hash), end=" ")
