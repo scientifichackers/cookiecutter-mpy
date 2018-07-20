@@ -79,18 +79,13 @@ def remove_unwanted(dir_or_file: str):
 
         # queue the children to be inspected in next iteration (with correct path).
         for child in children:
-            if dir_or_file == "/":
-                dir_or_file = dir_or_file + child
-            else:
-                dir_or_file = dir_or_file + "/" + child
-
-            remove_unwanted(dir_or_file)
+            remove_unwanted(dir_or_file + "/" + child)
 
 
 # gather required files / dirs.
 required_files = {{required_files}}
+required_files.add("boot.py")  # avoid fucking up the boot.py.
 required_dirs = {{required_dirs}}
-required_dirs.add("boot.py")  # avoid fucking up the boot.py.
 
 
 # Remove unwanted files / dirs.
