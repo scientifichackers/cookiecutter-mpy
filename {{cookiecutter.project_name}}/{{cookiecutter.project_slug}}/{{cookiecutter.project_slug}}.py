@@ -1,5 +1,7 @@
 """
-This file is imported when the `{{cookiecutter.project_name}} run` command is executed from the terminal.
+The mainloop() is run by `{{cookiecutter.project_name}} run` (in the command-line).
 """
 
-print("Hello World!")
+
+def mainloop():
+    print("Hello World!")

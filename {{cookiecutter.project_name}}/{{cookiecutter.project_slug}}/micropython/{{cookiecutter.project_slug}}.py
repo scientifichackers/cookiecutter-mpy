@@ -1,7 +1,9 @@
 """
-This file is imported in the "main.py" file. (inside micropython board)
+The mainloop() is run from the "main.py" file, on the Micropython board.
 
-The "main.py" file is run at boot, right after the "boot.py" file
+The "main.py" file is run at boot, right after the "boot.py" file.
 """
 
-print("Hello Micropython!")
+
+def mainloop():
+    print("Hello Micropython!")

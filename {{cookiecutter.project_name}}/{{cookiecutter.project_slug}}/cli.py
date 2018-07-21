@@ -151,7 +151,7 @@ def install(port, force):
     print('Configuring "main.py"...')
     save_code_on_board(
         port,
-        "import {{cookiecutter.project_slug}}.micropython.{{cookiecutter.project_slug}}",
+        "from {{cookiecutter.project_slug}}.micropython.{{cookiecutter.project_slug}} import mainloop\nmainloop()",
         "main.py",
     )
 
@@ -173,7 +173,9 @@ def install(port, force):
 def run():
     """Run {{cookiecutter.project_name}}"""
 
-    import {{cookiecutter.project_slug}}.{{cookiecutter.project_slug}}
+    from {{cookiecutter.project_slug}}.{{cookiecutter.project_slug}} import mainloop
+
+    mainloop()
 
 
 ###########################################

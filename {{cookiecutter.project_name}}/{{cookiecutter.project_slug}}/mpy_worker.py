@@ -65,6 +65,7 @@ def rm_if_not_required(file: str) -> None:
 
 
 def remove_unwanted(dir_or_file: str):
+    # remove the leading slashes, since the whole system works on relative paths.
     if dir_or_file.startswith("/"):
         dir_or_file = dir_or_file[1:]
     try:
@@ -79,7 +80,7 @@ def remove_unwanted(dir_or_file: str):
 
         # queue the children to be inspected in next iteration (with correct path).
         for child in children:
-            remove_unwanted(dir_or_file + "/" + child)
+            remove_unwanted(dir_or_file + "/" + child)  # pass the full path.
 
 
 # gather required files / dirs.
